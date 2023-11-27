@@ -1,10 +1,11 @@
-import { clients, projects } from "../sampleData.js";
 import {
 	GraphQLObjectType,
+	GraphQLNonNull,
 	GraphQLString,
 	GraphQLID,
 	GraphQLSchema,
 	GraphQLList,
+	GraphQLEnumType,
 } from "graphql";
 import Client from "../models/Client.js";
 import Project from "../models/Project.js";
@@ -23,7 +24,7 @@ const ClientType = new GraphQLObjectType({
 });
 
 const ProjectType = new GraphQLObjectType({
-	name: "projects",
+	name: "Project",
 	fields: () => ({
 		id: { type: GraphQLID },
 		name: { type: GraphQLString },
@@ -39,6 +40,8 @@ const ProjectType = new GraphQLObjectType({
 	}),
 });
 
+// This is similar to get in REST_API
+// To get a data from a datasource.
 const RootQuery = new GraphQLObjectType({
 	name: "RootQueryType",
 	fields: {
@@ -79,8 +82,117 @@ const RootQuery = new GraphQLObjectType({
 	},
 });
 
+// Mutation
+const mutation = new GraphQLObjectType({
+	name: "Mutation",
+	fields: {
+		addClient: {
+			type: ClientType,
+			args: {
+				name: { type: new GraphQLNonNull(GraphQLString) },
+				email: { type: new GraphQLNonNull(GraphQLString) },
+				phone: { type: new GraphQLNonNull(GraphQLString) },
+			},
+			resolve(parent, args) {
+				const newClient = new Client({
+					name: args.name,
+					email: args.email,
+					phone: args.phone,
+				});
+				return newClient.save();
+			},
+		},
+		deleteClient: {
+			type: ClientType,
+			args: {
+				id: { type: new GraphQLNonNull(GraphQLID) },
+			},
+			resolve(parent, args) {
+				Project.find({ clientId: args.id }).then((projects) => {
+					projects.forEach((project) => {
+						project.deleteOne();
+					});
+				});
+				return Client.findByIdAndRemove(args.id);
+			},
+		},
+		// Add a project
+		addProject: {
+			type: ProjectType,
+			args: {
+				name: { type: new GraphQLNonNull(GraphQLString) },
+				description: { type: new GraphQLNonNull(GraphQLString) },
+				clientId: { type: new GraphQLNonNull(GraphQLID) },
+				status: {
+					type: new GraphQLEnumType({
+						name: "ProjectStatus",
+						values: {
+							new: { value: "Not Started" },
+							progress: { value: "In Progress" },
+							completed: { value: "Completed" },
+						},
+					}),
+					defaultValue: "Not Started",
+				},
+			},
+			resolve(parent, { name, description, clientId, status }) {
+				const newProject = new Project({
+					name,
+					description,
+					clientId,
+					status,
+				});
+				return newProject.save();
+			},
+		},
+		// Delete a Project
+		deleteProject: {
+			type: ProjectType,
+			args: {
+				id: { type: new GraphQLNonNull(GraphQLID) },
+			},
+			resolve(parent, args) {
+				return Project.findByIdAndRemove(args.id);
+			},
+		},
+		// update a project
+		updateProject: {
+			type: ProjectType,
+			args: {
+				id: { type: new GraphQLNonNull(GraphQLID) },
+				name: { type: GraphQLString },
+				description: { type: GraphQLString },
+				status: {
+					type: new GraphQLEnumType({
+						name: "ProjectStatusUpdate", //Must be unique
+						values: {
+							new: { value: "Not Started" },
+							progress: { value: "In Progress" },
+							completed: { value: "Completed" },
+						},
+					}),
+				},
+			},
+			resolve(parent, { name, description, status, ...args }) {
+				return Project.findByIdAndUpdate(
+					args.id,
+					{
+						name,
+						description,
+						status,
+					},
+
+					{ new: true }
+				);
+			},
+		},
+		// next task
+	},
+});
+
 export default new GraphQLSchema({
 	query: RootQuery,
+	mutation,
 });
 
 // You use queries when you are fetching or getting data while you use

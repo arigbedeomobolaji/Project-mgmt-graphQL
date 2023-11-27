@@ -1,6 +1,7 @@
 import express from "express";
 import mongoose from "mongoose";
 import colors from "colors";
+import cors from "cors";
 import { graphqlHTTP } from "express-graphql";
 import dotenv from "dotenv";
 import schema from "./schema/schema.js";
@@ -10,6 +11,7 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || "5000";
 const dbUrl = process.env.MONGO_URI;
+app.use(cors());
 app.use(
 	"/graphql",
 	graphqlHTTP({
